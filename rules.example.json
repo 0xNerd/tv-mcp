@@ -2,27 +2,39 @@
   "ict_report": {
     "symbol": "BINANCE:BTCUSDT",
     "timeframes": ["W", "D", "240"],
-    "screenshot_region": "full",
+    "screenshot_region": "chart",
     "screenshot_delay_ms": 1000,
+    "hide_pine_editor": true,
     "heuristics": {
       "enabled": true,
       "ohlcv_bars": 100
     },
-    "zones": [
-      {
-        "label": "Example manual level",
-        "price": 95000,
-        "timeframes": ["D", "240"],
-        "shape": "horizontal_line"
-      }
+    "zones": [],
+    "synthesis_hints": [
+      "Bias and execution must align with ICT-style context: liquidity, order blocks, FVGs, market structure, sessions as you define them.",
+      "Only highlight or favor setups where planned reward:risk falls in the 1:8–1:9 band; reject or downgrade anything below 1:8."
+    ]
+  },
+
+  "bias_criteria": {
+    "bullish": [
+      "HTF (weekly/daily) structure supportive of longs — e.g. price holding above key dealing range / bullish breaker context per your ICT rules"
+    ],
+    "bearish": [
+      "HTF structure supportive of shorts — e.g. rejection from premium / bearish order flow per your ICT rules"
+    ],
+    "neutral": [
+      "No clear HTF bias or price mid-range / chop — stand aside or reduce size"
     ]
   },
 
   "risk_rules": [
-    "Only take trades where R:R is at least 1:2",
-    "Maximum 2 open positions at once",
-    "If I have 2 losing trades in a row, stop for the day"
+    "Reward:risk: only consider trades with planned R:R in the 1:8 to 1:9 range; minimum acceptable R:R is 1:8 (nothing weaker).",
+    "Size positions so a full stop-out respects your max risk per trade (define % or $ in your journal).",
+    "Maximum 2 correlated positions on the same underlying unless explicitly scaling a planned runner.",
+    "Two consecutive full stop-outs: stop trading for the day and review.",
+    "No revenge trades after a loss in the same session."
   ],
 
-  "notes": "Macro context, news, or personal reminders for synthesis (optional)."
+  "notes": "This fork is oriented around ICT-style multi-timeframe analysis (tv ict / tv_ict) and synthesis. Tune ict_report.symbol, timeframes, and zones to your watchlist. Use examples/position-tool.pine (or your own Pine) for on-chart RR visualization; inputs should reflect your 1:8–1:9 targets."
 }

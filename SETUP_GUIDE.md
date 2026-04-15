@@ -105,6 +105,8 @@ node src/cli/index.js ict
 
 Or after `npm link`: `tv ict`. Artifacts: `screenshots/ict-runs/<timestamp>/` (PNGs + markdown + `synthesis.md`).
 
+ICT runs use **chart-only** captures by default and **hide the Pine editor** before each PNG (`ict_report` in `rules.json`). Add overlay indicators (e.g. **`examples/position-tool.pine`**) to the chart first; they remain visible on the chart while the editor panel is closed for the shot.
+
 **Claude Code users:** Use MCP tool **`tv_ict`** (e.g. *“Run tv_ict”*) after a full app restart so MCP loads — same result as the CLI. Or use the **terminal** command above. Plain chat text “tv ict” alone may not invoke either.
 
 ## Step 8: Install CLI (Optional)

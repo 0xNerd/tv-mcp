@@ -59,7 +59,7 @@ Batch: batch_run → run action across multiple symbols/timeframes
 Drawing: draw_shape → horizontal_line, trend_line, rectangle, text
 Alerts: alert_create, alert_list, alert_delete
 Launch: tv_launch → auto-detect and start TradingView with CDP on any platform
-ICT pack: tv_ict → same as CLI tv ict: multi-TF screenshots + markdown from rules.json (optional dry_run)
+ICT pack: tv_ict → same as CLI tv ict: chart-region PNGs by default, closes Pine editor before capture unless ict_report.hide_pine_editor is false
 Panes: pane_list, pane_set_layout (s, 2h, 2v, 4, 6, 8), pane_focus, pane_set_symbol
 Tabs: tab_list, tab_new, tab_close, tab_switch
 

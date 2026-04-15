@@ -1,0 +1,57 @@
+//@version=6
+indicator("Position Tool", overlay=true, max_boxes_count=5, max_lines_count=10, max_labels_count=10)
+
+// ── Inputs ────────────────────────────────────────────────────────────────────
+dir        = input.string("Long", "Direction", options=["Long", "Short"])
+entryPrice = input.float(74627,   "Entry",     minval=0, step=1)
+slPrice    = input.float(73762,   "Stop Loss", minval=0, step=1)
+tpPrice    = input.float(82412,   "Target",    minval=0, step=1)
+
+// ── Derived ───────────────────────────────────────────────────────────────────
+isLong   = dir == "Long"
+risk     = math.abs(entryPrice - slPrice)
+rwd      = math.abs(tpPrice - entryPrice)
+rr       = rwd / risk
+openPct  = (close - entryPrice) / entryPrice * 100 * (isLong ? 1 : -1)
+pnlPos   = openPct >= 0
+
+// ── Geometry ──────────────────────────────────────────────────────────────────
+lft  = bar_index - 30
+rgt  = bar_index
+midX = bar_index - 15  // center of the shaded box
+
+// ── Colors ────────────────────────────────────────────────────────────────────
+cLossBg = color.new(color.red,  80)
+cProfBg = color.new(color.lime, 80)
+cEntry  = color.new(color.blue, 0)
+cSL     = color.new(color.red,  0)
+cTP     = color.new(color.lime, 0)
+
+if barstate.islast
+    // ── Zones ──────────────────────────────────────────────────────────────
+    box.new(lft, entryPrice, rgt, slPrice,    bgcolor=cLossBg, border_color=color.new(color.red,  50))
+    box.new(lft, tpPrice,    rgt, entryPrice, bgcolor=cProfBg, border_color=color.new(color.lime, 50))
+
+    // ── Lines ──────────────────────────────────────────────────────────────
+    line.new(lft, entryPrice, rgt, entryPrice, color=cEntry, width=2)
+    line.new(lft, slPrice,    rgt, slPrice,    color=cSL,    width=1, style=line.style_dashed)
+    line.new(lft, tpPrice,    rgt, tpPrice,    color=cTP,    width=1, style=line.style_dashed)
+
+    // ── Entry / Open P&L — centered on entry line inside the box ──────────
+    label.new(midX, entryPrice,
+              (isLong ? "LONG" : "SHORT") + "  " + str.tostring(entryPrice, "#.00") + "\n" +
+              "Open P&L: " + (pnlPos ? "+" : "") + str.tostring(math.round(openPct, 2)) + "%",
+              color=color.new(color.green, 20), textcolor=color.white,
+              style=label.style_label_center, size=size.small)
+
+    // ── Stop Loss — centered inside red zone ──────────────────────────────
+    label.new(midX, math.avg(entryPrice, slPrice),
+              "Stop Loss  " + str.tostring(slPrice, "#.00"),
+              color=color.new(color.red, 20), textcolor=color.white,
+              style=label.style_label_center, size=size.small)
+
+    // ── Target — centered inside green zone ───────────────────────────────
+    label.new(midX, math.avg(entryPrice, tpPrice),
+              "Target  " + str.tostring(tpPrice, "#.00") + "     R:R  1:" + str.tostring(math.round(rr, 1)),
+              color=color.new(color.green, 20), textcolor=color.white,
+              style=label.style_label_center, size=size.small)

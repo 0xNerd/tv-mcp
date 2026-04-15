@@ -21,8 +21,8 @@ Built on top of the original [tradingview-mcp](https://github.com/tradesdontlie/
 
 | Feature | What it does |
 |---------|-------------|
-| `tv ict` | For each timeframe in `rules.json` → `ict_report` (default W / D / 4H): draws zones, then saves PNGs + markdown. **Screenshots default to the full TradingView window** (`screenshot_region`: `full`) so docked panels (e.g. Pine editor) match what you see — not the old chart-only crop. Use `chart` only if you want the canvas tight. Tune `screenshot_delay_ms` if UI is still settling. |
-| `rules.json` | Single file: `ict_report` (symbol, timeframes, zones, heuristics) plus `risk_rules`, `notes`, and any extra fields you keep for your own workflows |
+| `tv ict` | For each timeframe: draws zones, then **chart-only PNGs** (`screenshot_region` default **`chart`**). **`hide_pine_editor`** (default **true**) closes the Pine panel before capture via `bottomWidgetBar.hideWidget`. Set `hide_pine_editor`: false or `screenshot_region`: `full` if you want the whole window. |
+| `rules.json` | **`ict_report`** (symbol, TFs, screenshot options, zones, **`synthesis_hints`**), **`bias_criteria`**, **`risk_rules`** (e.g. 1:8–1:9 R:R), **`notes`** — tuned for ICT-style packs and `synthesis.md` |
 | Launch bug fix | Fixed `tv_launch` compatibility with TradingView Desktop v2.14+ |
 | `capture_screenshot` | Optional `output_dir` argument to save PNGs outside the default folder |
 
@@ -71,8 +71,9 @@ cp rules.example.json rules.json
 ```
 
 Open `rules.json` and fill in:
-- **`ict_report`** — TradingView symbol string, timeframes (`W`, `D`, `240`), optional manual **zones** (price levels / rectangles / text), heuristic toggle
-- **`risk_rules`** and **`notes`** — included in each timeframe markdown and in `synthesis.md`
+- **`ict_report`** — symbol, timeframes, screenshot options, optional **zones**, **`synthesis_hints`** (injected into **`synthesis.md`**)
+- **`bias_criteria`** — HTF bias language for ICT-style reads
+- **`risk_rules`** and **`notes`** — in each timeframe `.md` and **`synthesis.md`** (e.g. **1:8–1:9** reward:risk band)
 
 ### 3. Launch TradingView with CDP
 
@@ -130,12 +131,13 @@ tv ict
 
 Outputs land in `screenshots/ict-runs/<ISO-timestamp>/` (PNG per timeframe + markdown + `synthesis.md`).
 
-**Making captures match your layout (e.g. chart + dark Pine editor):**
+**Screenshots (chart-only, Pine hidden):**
 
-- **`ict_report.screenshot_region`** — Default is **`full`** (whole TradingView window). The old **`chart`** mode only grabbed the light chart canvas and looked sparse. Keep Pine docked on the right *before* running `tv ict` / `tv_ict` if you want it in the shot.
-- **`ict_report.screenshot_delay_ms`** — Default **800** ms after drawing levels; raise to **1000–1500** if panels still look half-painted.
-- **Dark theme** — Set in TradingView: *Settings → Appearance* (e.g. dark chart and/or dark UI). The automation cannot switch themes for you.
-- **ICT script on chart** — Your Pine must compile (fix errors like “Syntax error at input …”); otherwise only volume / manual drawings from `tv ict` will show on the chart side.
+- **`ict_report.screenshot_region`** — Default **`chart`** (main price pane canvas via `[data-name="pane-canvas"]`). Use **`full`** only if you want the entire app content in the PNG.
+- **`ict_report.hide_pine_editor`** — Default **`true`**: runs the same close action as **`ui_open_panel`** (`pine-editor`, `close`) before each shot so the **Pine editor is not in the image**. Set to **`false`** to skip (e.g. if hiding fails on your layout).
+- **`ict_report.screenshot_delay_ms`** — Default **800** ms after drawing levels; raise to **1000–1500** if the chart still looks mid-update.
+- **Dark theme** — *Settings → Appearance* in TradingView (not controlled by this tool).
+- **Overlays on chart** — Indicators (e.g. **[examples/position-tool.pine](examples/position-tool.pine)**) must **compile** and stay on the chart; Pine can stay open while you work — it is closed only briefly before each capture when `hide_pine_editor` is true.
 
 ### In Claude Code (after the one-shot setup)
 
@@ -185,7 +187,7 @@ Claude reads `CLAUDE.md` automatically when working in this project. It contains
 
 | Tool | What it does |
 |------|-------------|
-| `tv_ict` | Multi-timeframe report from `rules.json` → `ict_report`: draws zones, saves PNGs + `weekly.md` / `daily.md` / `4h.md` + `synthesis.md` under `screenshots/ict-runs/<timestamp>/`. Optional: `rules_path`, `dry_run`. |
+| `tv_ict` | Same as `tv ict`: chart-only PNGs by default, closes Pine editor before each capture (`ict_report.hide_pine_editor`). Optional: `rules_path`, `dry_run`. |
 
 ### Chart Reading
 

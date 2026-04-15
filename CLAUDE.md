@@ -2,7 +2,9 @@
 
 MCP tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222). **Claude Code loads MCP only when the app starts** — after changing `~/.claude/.mcp.json`, fully quit and reopen Claude Code (don’t rely on in-session restart alone). Terminal fallback: **`tv status`** checks CDP like `tv_health_check`.
 
-For multi-timeframe ICT packs, use MCP tool **`tv_ict`** (same as CLI `tv ict`: `rules.json` → `ict_report`, W/D/4H screenshots + markdown under `screenshots/ict-runs/`). Optional args: `rules_path`, `dry_run: true` for a plan only. ICT screenshots default to **`ict_report.screenshot_region` = `full`** (entire window, so Pine editor can appear); `chart` = canvas-only crop. Alternatively run **`node src/cli/index.js ict`** in a terminal. **`capture_screenshot`** accepts optional `output_dir` for custom save locations.
+For **screenshot-ready chart overlays** (position tool style: boxes/lines/labels for entry, SL, TP, R:R), see repo **`examples/position-tool.pine`** — add to chart before `tv_ict` so captures include that art; script must compile.
+
+For multi-timeframe ICT packs, use MCP tool **`tv_ict`** (same as CLI `tv ict`: `rules.json` → `ict_report`, W/D/4H screenshots + markdown under `screenshots/ict-runs/`). Optional args: `rules_path`, `dry_run: true` for a plan only. ICT screenshots default to **`chart`** (canvas crop) and **`hide_pine_editor`: true** (closes Pine before capture). Use `full` / `hide_pine_editor`: false in `rules.json` to change. Alternatively run **`node src/cli/index.js ict`** in a terminal. **`capture_screenshot`** accepts optional `output_dir` for custom save locations.
 
 ## Decision Tree — Which Tool When
 

@@ -2,73 +2,39 @@
   "ict_report": {
     "symbol": "BINANCE:BTCUSDT",
     "timeframes": ["W", "D", "240"],
-    "screenshot_region": "full",
+    "screenshot_region": "chart",
     "screenshot_delay_ms": 1000,
+    "hide_pine_editor": true,
     "heuristics": { "enabled": true, "ohlcv_bars": 100 },
-    "zones": []
+    "zones": [],
+    "synthesis_hints": [
+      "Bias and execution must align with ICT-style context: liquidity, order blocks, FVGs, market structure, sessions.",
+      "Only favor setups with planned reward:risk in the 1:8–1:9 band; reject or downgrade anything below 1:8."
+    ]
   },
 
   "watchlist": ["BTCUSDT"],
-  "default_timeframe": "1",
-
-  "strategy": {
-    "name": "10-Second Momentum Scalper",
-    "sources": [
-      "Price momentum — buy if last close > previous close (green candle)",
-      "RSI filter — only trade when RSI is not at an extreme (30–70 range)"
-    ],
-    "primary_timeframes": [
-      "1-minute (signal source)",
-      "10-second execution loop"
-    ]
-  },
-
-  "indicators": {
-    "rsi_14": "Momentum filter. Only trade when RSI is between 30–70 (avoid extremes).",
-    "price_momentum": "Compare last close vs previous close. Up = long signal. Down = short signal."
-  },
+  "default_timeframe": "240",
 
   "bias_criteria": {
     "bullish": [
-      "Last 1-min candle closed higher than the one before it",
-      "RSI is between 30 and 70"
+      "HTF (weekly/daily) supportive of longs — liquidity taken, structure shifting bullish, or discount reclaim per your ICT framework"
     ],
     "bearish": [
-      "Last 1-min candle closed lower than the one before it",
-      "RSI is between 30 and 70"
+      "HTF supportive of shorts — premium delivery, liquidity above swept, or bearish structure per your ICT framework"
     ],
     "neutral": [
-      "RSI is above 70 (overbought — skip)",
-      "RSI is below 30 (oversold — skip)",
-      "Candle close change is less than 0.05% (chop — skip)"
+      "No clear HTF bias, mid-range chop, or conflicting W vs D — reduce risk or no new positions"
     ]
   },
-
-  "entry_rules": {
-    "long": [
-      "Last close > previous close by at least 0.05%",
-      "RSI between 30 and 70",
-      "Enter market buy immediately"
-    ],
-    "short": [
-      "Last close < previous close by at least 0.05%",
-      "RSI between 30 and 70",
-      "Enter market sell immediately"
-    ]
-  },
-
-  "exit_rules": [
-    "Exit automatically after 10 seconds (next loop tick closes previous position)",
-    "No manual exit management — pure time-based scalp"
-  ],
 
   "risk_rules": [
-    "Fixed trade size: 1% of portfolio per trade",
-    "Maximum trade size: $3.00",
-    "Maximum 6 trades per 60-second run",
-    "No stop loss — exit is time-based at next tick",
-    "For demo purposes only — minimum BitGet order size may apply"
+    "Reward:risk: target the 1:8 to 1:9 band only; minimum acceptable planned R:R is 1:8 — do not take setups below that.",
+    "Risk per trade: cap at your chosen % or $ of account (document in journal).",
+    "Maximum 2 open positions on the same asset unless scaling a single planned idea.",
+    "Two full stop-outs in a row: done for the day.",
+    "No revenge entries after a loss in the same session."
   ],
 
-  "notes": "Demo strategy for YouTube video. Runs 6 trades over 60 seconds, one every 10 seconds. Signal is simple price momentum on 1-min candles with RSI sanity check."
+  "notes": "ICT-focused workflow: run tv ict / tv_ict for W·D·4H packs; align discretionary reads with bias_criteria and risk_rules. Position-tool style overlays: see examples/position-tool.pine — set SL/TP so on-chart R:R sits in 1:8–1:9 when you mark a hypothetical trade."
 }

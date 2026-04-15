@@ -5,7 +5,7 @@ import * as core from '../core/ict.js';
 export function registerIctTools(server) {
   server.tool(
     'tv_ict',
-    'Run the ICT multi-timeframe report: reads rules.json → ict_report, switches chart through each timeframe (default W/D/4H), draws config + optional OHLCV heuristic levels, saves chart PNGs and weekly/daily/4h markdown plus synthesis.md under screenshots/ict-runs/<timestamp>/. Same workflow as CLI `tv ict`.',
+    'Run the ICT multi-timeframe report: reads rules.json → ict_report, switches chart through each timeframe (default W/D/4H), draws config + optional OHLCV heuristic levels, hides Pine editor (unless ict_report.hide_pine_editor is false), captures chart-region PNGs by default, saves weekly/daily/4h markdown plus synthesis.md under screenshots/ict-runs/<timestamp>/. Same as CLI `tv ict`.',
     {
       rules_path: z
         .string()

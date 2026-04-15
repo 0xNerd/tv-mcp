@@ -8,6 +8,7 @@ import * as chart from './chart.js';
 import * as data from './data.js';
 import * as drawing from './drawing.js';
 import * as capture from './capture.js';
+import * as ui from './ui.js';
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -32,9 +33,9 @@ export function loadRules(rulesPath) {
   return { path, data: JSON.parse(raw) };
 }
 
-/** Screenshot crop for ICT runs. Default full = entire TradingView window (chart + Pine editor, toolbars). */
+/** Screenshot crop for ICT runs. Default chart = main pane canvas only (no Pine editor in frame). */
 export function normalizeIctScreenshotRegion(raw) {
-  const v = (raw == null ? 'full' : String(raw)).toLowerCase();
+  const v = (raw == null ? 'chart' : String(raw)).toLowerCase();
   if (v === 'chart' || v === 'pane' || v === 'canvas') return 'chart';
   if (v === 'strategy_tester' || v === 'backtest') return 'strategy_tester';
   return 'full';
@@ -64,6 +65,9 @@ export function getIctConfig(rulesData) {
       Math.max(Number.isFinite(delay) ? delay : 800, 200),
       15000,
     ),
+    /** Call TradingView bottomWidgetBar to hide Pine before capture (chart-only PNGs). */
+    hide_pine_editor: ict.hide_pine_editor !== false,
+    synthesis_hints: Array.isArray(ict.synthesis_hints) ? ict.synthesis_hints : [],
   };
 }
 
@@ -216,6 +220,7 @@ export function buildSynthesisMarkdown({
   perTfSummary,
   riskRules,
   notes,
+  synthesisHints,
 }) {
   const prefix = symbolToFilePrefix(symbol);
   const lines = [
@@ -238,6 +243,11 @@ export function buildSynthesisMarkdown({
       lines.push(`- Window range: **${s.low}** – **${s.high}**`);
     }
     if (s?.close != null) lines.push(`- Last close (window): **${s.close}**`);
+    lines.push('');
+  }
+  if (synthesisHints?.length) {
+    lines.push('## Analysis focus (from rules.json → ict_report.synthesis_hints)', '');
+    for (const h of synthesisHints) lines.push(`- ${h}`);
     lines.push('');
   }
   lines.push('## Big picture (HTF → LTF)', '');
@@ -278,12 +288,14 @@ export function dryRunPlan({ rulesPath, config }) {
     timeframes: config.timeframes,
     heuristics: config.heuristics,
     zone_count: config.zones.length,
+    synthesis_hints_count: config.synthesis_hints.length,
     screenshot_region: config.screenshot_region,
     screenshot_delay_ms: config.screenshot_delay_ms,
+    hide_pine_editor: config.hide_pine_editor,
     steps: [
       `Load rules: ${rulesPath}`,
       `Set symbol: ${config.symbol}`,
-      `Screenshots: region=${config.screenshot_region}, delay_ms=${config.screenshot_delay_ms}`,
+      `Screenshots: region=${config.screenshot_region}, delay_ms=${config.screenshot_delay_ms}, hide_pine_editor=${config.hide_pine_editor}`,
       ...config.timeframes.flatMap((tf) => {
         const slug = tfToSlug(tf);
         return [
@@ -350,6 +362,15 @@ export async function runIctReport({ rulesPath, dryRun } = {}) {
     }
     await sleep(cfg.screenshot_delay_ms);
 
+    if (cfg.hide_pine_editor) {
+      try {
+        await ui.openPanel({ panel: 'pine-editor', action: 'close' });
+        await sleep(450);
+      } catch {
+        /* ignore — some layouts / builds may not expose bottomWidgetBar */
+      }
+    }
+
     const cap = await capture.captureScreenshot({
       region: cfg.screenshot_region,
       filename: `${prefix}_${tf}`,
@@ -378,6 +399,7 @@ export async function runIctReport({ rulesPath, dryRun } = {}) {
     perTfSummary,
     riskRules: rulesData.risk_rules,
     notes: rulesData.notes,
+    synthesisHints: cfg.synthesis_hints,
   });
   writeFileSync(join(runDir, 'synthesis.md'), synthesis, 'utf-8');
 
