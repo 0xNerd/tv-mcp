@@ -71,7 +71,7 @@ cp rules.example.json rules.json
 ```
 
 Open `rules.json` and fill in:
-- **`ict_report`** — symbol, timeframes, screenshot options, optional **zones**, **`synthesis_hints`** (injected into **`synthesis.md`**)
+- **`ict_report`** — symbol, timeframes, screenshot options, optional **`zones`** and **`drawings`** (same entry shape; merged and drawn before each timeframe screenshot), **`synthesis_hints`** (injected into **`synthesis.md`**)
 - **`bias_criteria`** — HTF bias language for ICT-style reads
 - **`risk_rules`** and **`notes`** — in each timeframe `.md` and **`synthesis.md`** (e.g. **1:8–1:9** reward:risk band)
 
@@ -134,10 +134,17 @@ Outputs land in `screenshots/ict-runs/<ISO-timestamp>/` (PNG per timeframe + mar
 **Screenshots (chart-only, Pine hidden):**
 
 - **`ict_report.screenshot_region`** — Default **`chart`** (main price pane canvas via `[data-name="pane-canvas"]`). Use **`full`** only if you want the entire app content in the PNG.
-- **`ict_report.hide_pine_editor`** — Default **`true`**: runs the same close action as **`ui_open_panel`** (`pine-editor`, `close`) before each shot so the **Pine editor is not in the image**. Set to **`false`** to skip (e.g. if hiding fails on your layout).
+- **`ict_report.hide_pine_editor`** — Default **`true`**: before each PNG, collapses the **right layout strip** (where the script editor usually lives in split view) and hides the **bottom** Pine widget, then **restores** the layout after the shot. If a future TradingView layout breaks this, set **`hide_pine_editor`**: false and collapse the editor manually before running.
 - **`ict_report.screenshot_delay_ms`** — Default **800** ms after drawing levels; raise to **1000–1500** if the chart still looks mid-update.
+- **Drawing before capture** — For each timeframe the run **`clearAll`s native chart shapes**, sets the resolution, fetches OHLCV for anchor times, then draws **`zones` ∪ `drawings`** (per-entry optional **`timeframes`** filter), then optional heuristic lines, waits **`screenshot_delay_ms`**, then captures. Shapes match **`draw_shape`**: `horizontal_line`, `vertical_line`, `trend_line`, `rectangle`, `text`. Each entry can include **`point`** / **`point2`** (`{ time, price }`) or top-level **`time`** / **`price`**; omitted **price** on single-point shapes falls back to the **last bar close**. Optional **`overrides`** is a style object (same as MCP **`draw_shape`**), e.g. `{ "linecolor": "#ff6600", "linewidth": 2 }`.
 - **Dark theme** — *Settings → Appearance* in TradingView (not controlled by this tool).
 - **Overlays on chart** — Indicators (e.g. **[examples/position-tool.pine](examples/position-tool.pine)**) must **compile** and stay on the chart; Pine can stay open while you work — it is closed only briefly before each capture when `hide_pine_editor` is true.
+
+### Does `tv_ict` / `tv ict` write Pine Script?
+
+**No.** It only reads **`rules.json`**, drives the chart (symbol, timeframes), draws **native chart shapes** from `ict_report.zones` and `ict_report.drawings` (merged) + optional OHLCV heuristics, then screenshots. It does **not** call `pine_set_source` or compile Pine.
+
+To use your **Position Tool** (or any ICT overlay), add the indicator to the chart yourself (or use MCP: **`pine_set_source`** → **`pine_smart_compile`** / **`pine_compile`**). The ICT run will screenshot whatever overlays are already on the chart.
 
 ### In Claude Code (after the one-shot setup)
 

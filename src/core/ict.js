@@ -59,7 +59,14 @@ export function getIctConfig(rulesData) {
       enabled: ict.heuristics?.enabled !== false,
       ohlcv_bars: Math.min(Number(ict.heuristics?.ohlcv_bars) || 100, 500),
     },
+    /** Legacy: price levels / boxes. Merged with `drawings` into `chart_drawings` for each run. */
     zones: Array.isArray(ict.zones) ? ict.zones : [],
+    /** Same schema as `zones`; use either or both — both are applied before each timeframe screenshot. */
+    drawings: Array.isArray(ict.drawings) ? ict.drawings : [],
+    chart_drawings: [
+      ...(Array.isArray(ict.zones) ? ict.zones : []),
+      ...(Array.isArray(ict.drawings) ? ict.drawings : []),
+    ],
     screenshot_region: normalizeIctScreenshotRegion(ict.screenshot_region),
     screenshot_delay_ms: Math.min(
       Math.max(Number.isFinite(delay) ? delay : 800, 200),
@@ -71,13 +78,16 @@ export function getIctConfig(rulesData) {
   };
 }
 
-export function filterZonesForTf(zones, tf) {
-  return zones.filter((z) => {
+export function filterDrawingsForTf(items, tf) {
+  return items.filter((z) => {
     const tfs = z.timeframes;
     if (!tfs || !Array.isArray(tfs) || tfs.length === 0) return true;
     return tfs.includes(tf);
   });
 }
+
+/** @deprecated Use filterDrawingsForTf */
+export const filterZonesForTf = filterDrawingsForTf;
 
 export function heuristicZoneOps(summary) {
   if (!summary?.last_5_bars?.length) return [];
@@ -114,43 +124,84 @@ export function heuristicZoneOps(summary) {
   return ops;
 }
 
-/** Config zones → draw ops; uses defaultTime when time omitted */
-export function configZonesToDrawOps(zones, defaultTime) {
+/**
+ * Config entries (zones and/or drawings) → draw ops.
+ * @param {{ time?: number, price?: number } | null} anchors — last-bar time/close when a point omits time or price (e.g. vertical_line price).
+ */
+export function configChartDrawingsToDrawOps(items, anchors) {
+  const defaultTime = anchors?.time;
+  const defaultPrice = anchors?.price;
   const ops = [];
-  for (const z of zones) {
-    const shape = z.shape || 'horizontal_line';
-    const price = z.point?.price ?? z.price;
-    const time = z.point?.time ?? z.time ?? defaultTime;
-    if (price == null || time == null) continue;
+  for (const z of items) {
+    const shapeRaw = z.shape || 'horizontal_line';
+    const shape = String(shapeRaw).toLowerCase();
+    const overrides = z.overrides;
 
     if (shape === 'rectangle' || shape === 'trend_line') {
+      const time = z.point?.time ?? z.time ?? defaultTime;
+      const price = z.point?.price ?? z.price;
       const p2t = z.point2?.time ?? z.point2_time;
       const p2p = z.point2?.price ?? z.point2_price;
-      if (p2t == null || p2p == null) continue;
+      if (time == null || price == null || p2t == null || p2p == null) continue;
       ops.push({
         shape,
         point: { time, price },
         point2: { time: p2t, price: p2p },
         text: z.text || z.label || '',
         label: z.label || shape,
+        overrides,
       });
-    } else if (shape === 'text') {
+      continue;
+    }
+
+    const time = z.point?.time ?? z.time ?? defaultTime;
+    let price = z.point?.price ?? z.price;
+    if (price == null && defaultPrice != null) price = defaultPrice;
+    if (time == null || price == null) continue;
+
+    if (shape === 'text') {
       ops.push({
         shape: 'text',
         point: { time, price },
         text: z.text || z.label || '',
         label: z.label || 'text',
+        overrides,
+      });
+    } else if (shape === 'vertical_line') {
+      ops.push({
+        shape: 'vertical_line',
+        point: { time, price },
+        text: z.text || z.label || '',
+        label: z.label || 'vertical',
+        overrides,
+      });
+    } else if (shape === 'horizontal_line') {
+      ops.push({
+        shape: 'horizontal_line',
+        point: { time, price },
+        text: z.label || z.text || '',
+        label: z.label || `level @ ${price}`,
+        overrides,
       });
     } else {
       ops.push({
         shape: 'horizontal_line',
         point: { time, price },
-        text: z.label || '',
-        label: z.label || `level @ ${price}`,
+        text: z.label || z.text || '',
+        label: z.label || `level @ ${price} (${shapeRaw})`,
+        overrides,
       });
     }
   }
   return ops;
+}
+
+/** @deprecated Use configChartDrawingsToDrawOps(items, { time, price }) */
+export function configZonesToDrawOps(zones, defaultTime, defaultPrice) {
+  return configChartDrawingsToDrawOps(zones, {
+    time: defaultTime,
+    price: defaultPrice,
+  });
 }
 
 export function mergeDrawOps(configOps, heuristicOps) {
@@ -193,8 +244,12 @@ export function buildTimeframeMarkdown({
     '',
   ];
   for (const op of drawOps) {
+    const t = op.point?.time;
     const p = op.point?.price ?? op.price;
-    lines.push(`- **${op.label}** — ${op.shape} @ ${p}`);
+    const p2 = op.point2;
+    let loc = `t=${t}, p=${p}`;
+    if (p2) loc += ` → t2=${p2.time}, p2=${p2.price}`;
+    lines.push(`- **${op.label}** — ${op.shape} (${loc})`);
   }
   if (drawOps.length === 0) lines.push('- *(no zones drawn)*');
   lines.push('', '## Risk rules (from rules.json)', '');
@@ -288,6 +343,8 @@ export function dryRunPlan({ rulesPath, config }) {
     timeframes: config.timeframes,
     heuristics: config.heuristics,
     zone_count: config.zones.length,
+    drawings_count: config.drawings.length,
+    chart_drawing_count: config.chart_drawings.length,
     synthesis_hints_count: config.synthesis_hints.length,
     screenshot_region: config.screenshot_region,
     screenshot_delay_ms: config.screenshot_delay_ms,
@@ -295,12 +352,12 @@ export function dryRunPlan({ rulesPath, config }) {
     steps: [
       `Load rules: ${rulesPath}`,
       `Set symbol: ${config.symbol}`,
-      `Screenshots: region=${config.screenshot_region}, delay_ms=${config.screenshot_delay_ms}, hide_pine_editor=${config.hide_pine_editor}`,
+      `Screenshots: region=${config.screenshot_region}, delay_ms=${config.screenshot_delay_ms}, hide_pine_editor=${config.hide_pine_editor} (collapses right layout strip + bottom Pine widget, then restores)`,
       ...config.timeframes.flatMap((tf) => {
         const slug = tfToSlug(tf);
         return [
           `Timeframe ${tf}: clear drawings → set resolution`,
-          `Draw: ${config.heuristics.enabled ? 'config zones + OHLCV heuristics' : 'config zones only'}`,
+          `Draw: ${config.heuristics.enabled ? 'chart_drawings (zones + drawings) + OHLCV heuristics' : 'chart_drawings (zones + drawings) only'}`,
           `Screenshot → ${prefix}_${tf}.png`,
           `Write ${slug}.md`,
         ];
@@ -339,13 +396,14 @@ export async function runIctReport({ rulesPath, dryRun } = {}) {
       count: cfg.heuristics.ohlcv_bars,
       summary: true,
     });
-    const lastT =
-      ohlcvSummary.last_5_bars?.[ohlcvSummary.last_5_bars.length - 1]?.time ??
-      Math.floor(Date.now() / 1000);
+    const lastBar =
+      ohlcvSummary.last_5_bars?.[ohlcvSummary.last_5_bars.length - 1] ?? null;
+    const lastT = lastBar?.time ?? Math.floor(Date.now() / 1000);
+    const lastClose = lastBar?.close ?? ohlcvSummary.close ?? null;
 
-    const configOps = configZonesToDrawOps(
-      filterZonesForTf(cfg.zones, tf),
-      lastT,
+    const configOps = configChartDrawingsToDrawOps(
+      filterDrawingsForTf(cfg.chart_drawings, tf),
+      { time: lastT, price: lastClose },
     );
     const heuristicOps = cfg.heuristics.enabled
       ? heuristicZoneOps(ohlcvSummary)
@@ -358,26 +416,41 @@ export async function runIctReport({ rulesPath, dryRun } = {}) {
         point: op.point,
         point2: op.point2,
         text: op.text,
+        overrides: op.overrides,
       });
     }
     await sleep(cfg.screenshot_delay_ms);
 
+    let layoutKey = null;
     if (cfg.hide_pine_editor) {
       try {
-        await ui.openPanel({ panel: 'pine-editor', action: 'close' });
-        await sleep(450);
+        const prep = await ui.prepareChartOnlyLayout();
+        layoutKey = prep.key;
+        await sleep(500);
       } catch {
-        /* ignore — some layouts / builds may not expose bottomWidgetBar */
+        /* layout API may be unavailable */
       }
     }
 
-    const cap = await capture.captureScreenshot({
-      region: cfg.screenshot_region,
-      filename: `${prefix}_${tf}`,
-      outputDir: runDir,
-    });
-    if (!cap.success) {
-      throw new Error(cap.error || 'screenshot failed');
+    let cap = null;
+    try {
+      cap = await capture.captureScreenshot({
+        region: cfg.screenshot_region,
+        filename: `${prefix}_${tf}`,
+        outputDir: runDir,
+      });
+    } finally {
+      if (layoutKey) {
+        try {
+          await ui.restoreChartLayoutAfterIct({ key: layoutKey });
+          await sleep(250);
+        } catch {
+          /* best-effort restore */
+        }
+      }
+    }
+    if (!cap?.success) {
+      throw new Error(cap?.error || 'screenshot failed');
     }
 
     const slug = tfToSlug(tf);

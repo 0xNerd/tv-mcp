@@ -291,3 +291,62 @@ export async function uiEvaluate({ expression }) {
   const result = await evaluate(expression);
   return { success: true, result };
 }
+
+/**
+ * Before ICT screenshots: hide bottom Pine widget and collapse the right layout strip
+ * (where the script editor often lives in split view). Returns a key for restoreChartLayoutAfterIct.
+ */
+export async function prepareChartOnlyLayout() {
+  const result = await evaluate(`
+    (function() {
+      var key = 'tv_mcp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      var stash = { key: key, rightStyle: null, hadRight: false, hidBottomPine: false };
+      var bwb = window.TradingView && window.TradingView.bottomWidgetBar;
+      if (bwb && typeof bwb.hideWidget === 'function') {
+        try {
+          bwb.hideWidget('pine-editor');
+          stash.hidBottomPine = true;
+        } catch (e) {}
+      }
+      var right = document.querySelector('[class*="layout__area--right"]');
+      if (right && right.offsetWidth > 8) {
+        stash.rightStyle = right.getAttribute('style') || '';
+        stash.hadRight = true;
+        right.style.setProperty('flex', '0 0 0px', 'important');
+        right.style.setProperty('width', '0px', 'important');
+        right.style.setProperty('min-width', '0px', 'important');
+        right.style.setProperty('max-width', '0px', 'important');
+        right.style.setProperty('overflow', 'hidden', 'important');
+      }
+      window.__tvMcpIctLayoutStash = window.__tvMcpIctLayoutStash || {};
+      window.__tvMcpIctLayoutStash[key] = stash;
+      return {
+        key: key,
+        ok: true,
+        collapsed_right_panel: stash.hadRight,
+        hid_bottom_pine_widget: stash.hidBottomPine,
+      };
+    })()
+  `);
+  return result;
+}
+
+/** Undo prepareChartOnlyLayout — call in a finally block after each screenshot. */
+export async function restoreChartLayoutAfterIct({ key }) {
+  if (!key) return { restored: false };
+  return await evaluate(`
+    (function() {
+      var k = ${JSON.stringify(key)};
+      var bucket = window.__tvMcpIctLayoutStash;
+      var stash = bucket && bucket[k];
+      if (!stash) return { restored: false, reason: 'no_stash' };
+      var right = document.querySelector('[class*="layout__area--right"]');
+      if (stash.hadRight && right) {
+        if (stash.rightStyle) right.setAttribute('style', stash.rightStyle);
+        else right.removeAttribute('style');
+      }
+      delete bucket[k];
+      return { restored: true };
+    })()
+  `);
+}

@@ -10,6 +10,7 @@
       "ohlcv_bars": 100
     },
     "zones": [],
+    "drawings": [],
     "synthesis_hints": [
       "Bias and execution must align with ICT-style context: liquidity, order blocks, FVGs, market structure, sessions as you define them.",
       "Only highlight or favor setups where planned reward:risk falls in the 1:8–1:9 band; reject or downgrade anything below 1:8."
@@ -36,5 +37,5 @@
     "No revenge trades after a loss in the same session."
   ],
 
-  "notes": "This fork is oriented around ICT-style multi-timeframe analysis (tv ict / tv_ict) and synthesis. Tune ict_report.symbol, timeframes, and zones to your watchlist. Use examples/position-tool.pine (or your own Pine) for on-chart RR visualization; inputs should reflect your 1:8–1:9 targets."
+  "notes": "This fork is oriented around ICT-style multi-timeframe analysis (tv ict / tv_ict) and synthesis. Tune ict_report.symbol, timeframes, zones, and drawings (merged before each screenshot) to your watchlist. Use examples/position-tool.pine (or your own Pine) for on-chart RR visualization; inputs should reflect your 1:8–1:9 targets."
 }
