@@ -60,8 +60,20 @@ export async function captureScreenshot({ region, filename, method, outputDir } 
 
   const params = { format: 'png' };
   if (clip) params.clip = clip;
+  // Full-window captures: prefer composited surface (often sharper, includes docked panels like Pine editor).
+  else params.fromSurface = true;
 
-  const { data } = await client.Page.captureScreenshot(params);
+  let data;
+  try {
+    ({ data } = await client.Page.captureScreenshot(params));
+  } catch (err) {
+    if (params.fromSurface) {
+      delete params.fromSurface;
+      ({ data } = await client.Page.captureScreenshot(params));
+    } else {
+      throw err;
+    }
+  }
   writeFileSync(filePath, Buffer.from(data, 'base64'));
 
   return {

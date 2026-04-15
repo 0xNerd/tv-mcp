@@ -2,6 +2,8 @@
   "ict_report": {
     "symbol": "BINANCE:BTCUSDT",
     "timeframes": ["W", "D", "240"],
+    "screenshot_region": "full",
+    "screenshot_delay_ms": 1000,
     "heuristics": { "enabled": true, "ohlcv_bars": 100 },
     "zones": []
   },

@@ -32,6 +32,14 @@ export function loadRules(rulesPath) {
   return { path, data: JSON.parse(raw) };
 }
 
+/** Screenshot crop for ICT runs. Default full = entire TradingView window (chart + Pine editor, toolbars). */
+export function normalizeIctScreenshotRegion(raw) {
+  const v = (raw == null ? 'full' : String(raw)).toLowerCase();
+  if (v === 'chart' || v === 'pane' || v === 'canvas') return 'chart';
+  if (v === 'strategy_tester' || v === 'backtest') return 'strategy_tester';
+  return 'full';
+}
+
 export function getIctConfig(rulesData) {
   const ict = rulesData.ict_report;
   if (!ict) {
@@ -39,6 +47,7 @@ export function getIctConfig(rulesData) {
       'rules.json must include an "ict_report" object. See rules.example.json.',
     );
   }
+  const delay = Number(ict.screenshot_delay_ms);
   return {
     symbol: ict.symbol || 'BINANCE:BTCUSDT',
     timeframes:
@@ -50,6 +59,11 @@ export function getIctConfig(rulesData) {
       ohlcv_bars: Math.min(Number(ict.heuristics?.ohlcv_bars) || 100, 500),
     },
     zones: Array.isArray(ict.zones) ? ict.zones : [],
+    screenshot_region: normalizeIctScreenshotRegion(ict.screenshot_region),
+    screenshot_delay_ms: Math.min(
+      Math.max(Number.isFinite(delay) ? delay : 800, 200),
+      15000,
+    ),
   };
 }
 
@@ -264,9 +278,12 @@ export function dryRunPlan({ rulesPath, config }) {
     timeframes: config.timeframes,
     heuristics: config.heuristics,
     zone_count: config.zones.length,
+    screenshot_region: config.screenshot_region,
+    screenshot_delay_ms: config.screenshot_delay_ms,
     steps: [
       `Load rules: ${rulesPath}`,
       `Set symbol: ${config.symbol}`,
+      `Screenshots: region=${config.screenshot_region}, delay_ms=${config.screenshot_delay_ms}`,
       ...config.timeframes.flatMap((tf) => {
         const slug = tfToSlug(tf);
         return [
@@ -331,10 +348,10 @@ export async function runIctReport({ rulesPath, dryRun } = {}) {
         text: op.text,
       });
     }
-    await sleep(450);
+    await sleep(cfg.screenshot_delay_ms);
 
     const cap = await capture.captureScreenshot({
-      region: 'chart',
+      region: cfg.screenshot_region,
       filename: `${prefix}_${tf}`,
       outputDir: runDir,
     });

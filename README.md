@@ -21,7 +21,7 @@ Built on top of the original [tradingview-mcp](https://github.com/tradesdontlie/
 
 | Feature | What it does |
 |---------|-------------|
-| `tv ict` | For each timeframe in `rules.json` → `ict_report` (default W / D / 4H): clears drawings, draws config + optional OHLCV heuristic levels, saves chart PNG + `weekly.md` / `daily.md` / `4h.md`, then `synthesis.md` under `screenshots/ict-runs/<timestamp>/` |
+| `tv ict` | For each timeframe in `rules.json` → `ict_report` (default W / D / 4H): draws zones, then saves PNGs + markdown. **Screenshots default to the full TradingView window** (`screenshot_region`: `full`) so docked panels (e.g. Pine editor) match what you see — not the old chart-only crop. Use `chart` only if you want the canvas tight. Tune `screenshot_delay_ms` if UI is still settling. |
 | `rules.json` | Single file: `ict_report` (symbol, timeframes, zones, heuristics) plus `risk_rules`, `notes`, and any extra fields you keep for your own workflows |
 | Launch bug fix | Fixed `tv_launch` compatibility with TradingView Desktop v2.14+ |
 | `capture_screenshot` | Optional `output_dir` argument to save PNGs outside the default folder |
@@ -129,6 +129,13 @@ tv ict
 ```
 
 Outputs land in `screenshots/ict-runs/<ISO-timestamp>/` (PNG per timeframe + markdown + `synthesis.md`).
+
+**Making captures match your layout (e.g. chart + dark Pine editor):**
+
+- **`ict_report.screenshot_region`** — Default is **`full`** (whole TradingView window). The old **`chart`** mode only grabbed the light chart canvas and looked sparse. Keep Pine docked on the right *before* running `tv ict` / `tv_ict` if you want it in the shot.
+- **`ict_report.screenshot_delay_ms`** — Default **800** ms after drawing levels; raise to **1000–1500** if panels still look half-painted.
+- **Dark theme** — Set in TradingView: *Settings → Appearance* (e.g. dark chart and/or dark UI). The automation cannot switch themes for you.
+- **ICT script on chart** — Your Pine must compile (fix errors like “Syntax error at input …”); otherwise only volume / manual drawings from `tv ict` will show on the chart side.
 
 ### In Claude Code (after the one-shot setup)
 
