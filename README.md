@@ -1,4 +1,6 @@
-# TradingView MCP Jackson
+# TradingView MCP (tv-mcp)
+
+**Repository:** [github.com/0xNerd/tv-mcp](https://github.com/0xNerd/tv-mcp)
 
 If you found this from the YouTube video — welcome. This is the improved fork. Everything you need is below.
 
@@ -31,9 +33,9 @@ Built on top of the original [tradingview-mcp](https://github.com/tradesdontlie/
 Paste this into Claude Code and it will handle everything:
 
 ```
-Set up TradingView MCP Jackson for me. 
-Clone https://github.com/LewisWJackson/tradingview-mcp-jackson.git to ~/tradingview-mcp-jackson, run npm install, then add it to my MCP config at ~/.claude/.mcp.json (merge with any existing servers, don't overwrite them). 
-The config block is: { "mcpServers": { "tradingview": { "command": "node", "args": ["/Users/YOUR_USERNAME/tradingview-mcp-jackson/src/server.js"] } } } — replace YOUR_USERNAME with my actual username.
+Set up tv-mcp (TradingView MCP) for me. 
+Clone https://github.com/0xNerd/tv-mcp.git to ~/tv-mcp, run npm install, then add it to my MCP config at ~/.claude/.mcp.json (merge with any existing servers, don't overwrite them). 
+The config block is: { "mcpServers": { "tradingview": { "command": "node", "args": ["/Users/YOUR_USERNAME/tv-mcp/src/server.js"] } } } — replace YOUR_USERNAME with my actual username.
 Then copy rules.example.json to rules.json and open it so I can fill in ict_report (symbol, zones) and risk rules.
 Finally restart and verify with tv_health_check.
 ```
@@ -56,8 +58,8 @@ Or follow the manual steps below.
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/LewisWJackson/tradingview-mcp-jackson.git ~/tradingview-mcp-jackson
-cd ~/tradingview-mcp-jackson
+git clone https://github.com/0xNerd/tv-mcp.git ~/tv-mcp
+cd ~/tv-mcp
 npm install
 ```
 
@@ -101,7 +103,7 @@ Add to `~/.claude/.mcp.json` (merge with any existing servers):
   "mcpServers": {
     "tradingview": {
       "command": "node",
-      "args": ["/Users/YOUR_USERNAME/tradingview-mcp-jackson/src/server.js"]
+      "args": ["/Users/YOUR_USERNAME/tv-mcp/src/server.js"]
     }
   }
 }

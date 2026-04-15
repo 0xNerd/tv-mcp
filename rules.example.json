@@ -1,0 +1,26 @@
+{
+  "ict_report": {
+    "symbol": "BINANCE:BTCUSDT",
+    "timeframes": ["W", "D", "240"],
+    "heuristics": {
+      "enabled": true,
+      "ohlcv_bars": 100
+    },
+    "zones": [
+      {
+        "label": "Example manual level",
+        "price": 95000,
+        "timeframes": ["D", "240"],
+        "shape": "horizontal_line"
+      }
+    ]
+  },
+
+  "risk_rules": [
+    "Only take trades where R:R is at least 1:2",
+    "Maximum 2 open positions at once",
+    "If I have 2 losing trades in a row, stop for the day"
+  ],
+
+  "notes": "Macro context, news, or personal reminders for synthesis (optional)."
+}
