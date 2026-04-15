@@ -1,6 +1,8 @@
 # TradingView MCP — Claude Instructions
 
-MCP tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222). For multi-timeframe ICT-style markup + screenshots from the terminal, use **`tv ict`** (reads `rules.json` → `ict_report`). **`capture_screenshot`** accepts optional `output_dir` for custom save locations.
+MCP tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222). **Claude Code loads MCP only when the app starts** — after changing `~/.claude/.mcp.json`, fully quit and reopen Claude Code (don’t rely on in-session restart alone). Terminal fallback: **`tv status`** checks CDP like `tv_health_check`.
+
+For multi-timeframe ICT packs, use MCP tool **`tv_ict`** (same as CLI `tv ict`: `rules.json` → `ict_report`, W/D/4H screenshots + markdown under `screenshots/ict-runs/`). Optional args: `rules_path`, `dry_run: true` for a plan only. Alternatively run **`node src/cli/index.js ict`** in a terminal. **`capture_screenshot`** accepts optional `output_dir` for custom save locations.
 
 ## Decision Tree — Which Tool When
 

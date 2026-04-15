@@ -1,9 +1,17 @@
 /**
- * ICT multi-timeframe report: rules parsing, zone helpers, markdown templates.
+ * ICT multi-timeframe report: rules parsing, zone helpers, markdown templates, full run.
  */
-import { readFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import * as chart from './chart.js';
+import * as data from './data.js';
+import * as drawing from './drawing.js';
+import * as capture from './capture.js';
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const PKG_ROOT = resolve(__dirname, '..', '..');
@@ -270,5 +278,106 @@ export function dryRunPlan({ rulesPath, config }) {
       }),
       'Write synthesis.md',
     ],
+  };
+}
+
+/**
+ * Full ICT report: CDP chart control, drawings, screenshots, markdown.
+ * Used by CLI `tv ict` and MCP tool `tv_ict`.
+ */
+export async function runIctReport({ rulesPath, dryRun } = {}) {
+  const { path: resolvedRulesPath, data: rulesData } = loadRules(rulesPath);
+  const cfg = getIctConfig(rulesData);
+
+  if (dryRun) {
+    return dryRunPlan({ rulesPath: resolvedRulesPath, config: cfg });
+  }
+
+  const runDir = makeRunDir();
+  const prefix = symbolToFilePrefix(cfg.symbol);
+  const perTfSummary = {};
+
+  await drawing.clearAll();
+  await chart.setSymbol({ symbol: cfg.symbol });
+  await sleep(1000);
+
+  for (const tf of cfg.timeframes) {
+    await drawing.clearAll();
+    await chart.setTimeframe({ timeframe: tf });
+    await sleep(1200);
+
+    const ohlcvSummary = await data.getOhlcv({
+      count: cfg.heuristics.ohlcv_bars,
+      summary: true,
+    });
+    const lastT =
+      ohlcvSummary.last_5_bars?.[ohlcvSummary.last_5_bars.length - 1]?.time ??
+      Math.floor(Date.now() / 1000);
+
+    const configOps = configZonesToDrawOps(
+      filterZonesForTf(cfg.zones, tf),
+      lastT,
+    );
+    const heuristicOps = cfg.heuristics.enabled
+      ? heuristicZoneOps(ohlcvSummary)
+      : [];
+    const drawOps = mergeDrawOps(configOps, heuristicOps);
+
+    for (const op of drawOps) {
+      await drawing.drawShape({
+        shape: op.shape,
+        point: op.point,
+        point2: op.point2,
+        text: op.text,
+      });
+    }
+    await sleep(450);
+
+    const cap = await capture.captureScreenshot({
+      region: 'chart',
+      filename: `${prefix}_${tf}`,
+      outputDir: runDir,
+    });
+    if (!cap.success) {
+      throw new Error(cap.error || 'screenshot failed');
+    }
+
+    const slug = tfToSlug(tf);
+    const md = buildTimeframeMarkdown({
+      symbol: cfg.symbol,
+      slug,
+      ohlcvSummary,
+      drawOps,
+      riskRules: rulesData.risk_rules,
+    });
+    writeFileSync(join(runDir, `${slug}.md`), md, 'utf-8');
+    perTfSummary[tf] = ohlcvSummary;
+  }
+
+  const synthesis = buildSynthesisMarkdown({
+    symbol: cfg.symbol,
+    runDir,
+    timeframes: cfg.timeframes,
+    perTfSummary,
+    riskRules: rulesData.risk_rules,
+    notes: rulesData.notes,
+  });
+  writeFileSync(join(runDir, 'synthesis.md'), synthesis, 'utf-8');
+
+  const files = [
+    ...cfg.timeframes.flatMap((tf) => [
+      `${prefix}_${tf}.png`,
+      `${tfToSlug(tf)}.md`,
+    ]),
+    'synthesis.md',
+  ];
+
+  return {
+    success: true,
+    run_dir: runDir,
+    rules_path: resolvedRulesPath,
+    symbol: cfg.symbol,
+    timeframes: cfg.timeframes,
+    files,
   };
 }

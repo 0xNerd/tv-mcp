@@ -37,7 +37,8 @@ Set up tv-mcp (TradingView MCP) for me.
 Clone https://github.com/0xNerd/tv-mcp.git to ~/tv-mcp, run npm install, then add it to my MCP config at ~/.claude/.mcp.json (merge with any existing servers, don't overwrite them). 
 The config block is: { "mcpServers": { "tradingview": { "command": "node", "args": ["/Users/YOUR_USERNAME/tv-mcp/src/server.js"] } } } — replace YOUR_USERNAME with my actual username.
 Then copy rules.example.json to rules.json and open it so I can fill in ict_report (symbol, zones) and risk rules.
-Finally restart and verify with tv_health_check.
+Finally fully quit and reopen Claude Code (so MCP loads), then verify with tv_health_check or `tv status` in a terminal.
+After that, to run the ICT report from inside Claude Code, ask the agent to run the shell command (see "In Claude Code" below)—do not type only `tv ict` in chat as plain text.
 ```
 
 Or follow the manual steps below.
@@ -113,7 +114,9 @@ Replace `YOUR_USERNAME` with your actual username. On Mac: `echo $USER` to check
 
 ### 5. Verify
 
-Restart Claude Code, then ask: *"Use tv_health_check to verify TradingView is connected"*
+**Fully quit** Claude Code (e.g. Cmd+Q) and reopen it so MCP loads your config — in-session `/restart` often does **not** attach new MCP servers. Then ask: *"Use tv_health_check to verify TradingView is connected"*.
+
+From the terminal you can also run `tv status` (same CDP check, no MCP needed).
 
 ### 6. Run your first ICT report
 
@@ -126,6 +129,13 @@ tv ict
 ```
 
 Outputs land in `screenshots/ict-runs/<ISO-timestamp>/` (PNG per timeframe + markdown + `synthesis.md`).
+
+### In Claude Code (after the one-shot setup)
+
+- **MCP tool `tv_ict`** — Same job as `tv ict` on the command line. After a full quit/relaunch so MCP is loaded, ask: *“Use **tv_ict** to generate the ICT report”* (optional: `dry_run: true` first). Returns JSON with `run_dir` and `files`.
+- **Terminal** — `cd ~/tv-mcp && node src/cli/index.js ict` (or `tv ict` after `npm link`).
+
+If you only type plain text like “tv ict” without asking for the tool or terminal, the model may answer conversationally instead of running the pack.
 
 ---
 
@@ -151,7 +161,7 @@ Claude reads `CLAUDE.md` automatically when working in this project. It contains
 
 | You say... | Claude uses... |
 |------------|---------------|
-| "Generate my ICT multi-TF pack" | Run `tv ict` (or drive the same steps with MCP: symbol/timeframe, `draw_shape`, `capture_screenshot`) |
+| "Generate my ICT multi-TF pack" | **`tv_ict`** (MCP) or CLI **`tv ict`** |
 | "What's on my chart?" | `chart_get_state` → `data_get_study_values` → `quote_get` |
 | "Give me a full analysis" | `quote_get` → `data_get_study_values` → `data_get_pine_lines` → `data_get_pine_labels` → `capture_screenshot` |
 | "Switch to BTCUSD daily" | `chart_set_symbol` → `chart_set_timeframe` |
@@ -163,6 +173,12 @@ Claude reads `CLAUDE.md` automatically when working in this project. It contains
 ---
 
 ## Tool Reference (MCP)
+
+### ICT report (this fork)
+
+| Tool | What it does |
+|------|-------------|
+| `tv_ict` | Multi-timeframe report from `rules.json` → `ict_report`: draws zones, saves PNGs + `weekly.md` / `daily.md` / `4h.md` + `synthesis.md` under `screenshots/ict-runs/<timestamp>/`. Optional: `rules_path`, `dry_run`. |
 
 ### Chart Reading
 
@@ -262,7 +278,8 @@ Full command list: `tv --help`
 |---------|----------|
 | `cdp_connected: false` | TradingView isn't running with `--remote-debugging-port=9222`. Use the launch script. |
 | `ECONNREFUSED` | TradingView isn't running or port 9222 is blocked |
-| MCP server not showing in Claude Code | Check `~/.claude/.mcp.json` syntax, restart Claude Code |
+| MCP server not showing in Claude Code | Check `~/.claude/.mcp.json` syntax, then **fully quit** Claude Code and reopen |
+| `tv_health_check` missing in chat | MCP only initializes at app startup — full quit and relaunch; or run `tv status` in a terminal |
 | `tv` command not found | Run `npm link` from the project directory |
 | `tv ict` — missing `ict_report` | Run `cp rules.example.json rules.json` and set `ict_report.symbol` |
 | `tv ict` — CDP errors | Launch TradingView with `--remote-debugging-port=9222` |

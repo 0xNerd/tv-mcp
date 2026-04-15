@@ -14,6 +14,8 @@ import { registerWatchlistTools } from "./tools/watchlist.js";
 import { registerUiTools } from "./tools/ui.js";
 import { registerPaneTools } from "./tools/pane.js";
 import { registerTabTools } from "./tools/tab.js";
+import { registerIctTools } from "./tools/ict.js";
+
 const server = new McpServer(
   {
     name: "tradingview",
@@ -57,6 +59,7 @@ Batch: batch_run → run action across multiple symbols/timeframes
 Drawing: draw_shape → horizontal_line, trend_line, rectangle, text
 Alerts: alert_create, alert_list, alert_delete
 Launch: tv_launch → auto-detect and start TradingView with CDP on any platform
+ICT pack: tv_ict → same as CLI tv ict: multi-TF screenshots + markdown from rules.json (optional dry_run)
 Panes: pane_list, pane_set_layout (s, 2h, 2v, 4, 6, 8), pane_focus, pane_set_symbol
 Tabs: tab_list, tab_new, tab_close, tab_switch
 
@@ -71,6 +74,7 @@ CONTEXT MANAGEMENT:
 
 // Register all tool groups
 registerHealthTools(server);
+registerIctTools(server);
 registerChartTools(server);
 registerPineTools(server);
 registerDataTools(server);

@@ -66,13 +66,17 @@ Linux:
 # or: tradingview --remote-debugging-port=9222
 ```
 
-## Step 5: Restart Claude Code
+## Step 5: Restart Claude Code (full quit required)
 
-The MCP server only loads when Claude Code starts. After adding the config:
+MCP servers are started **only when Claude Code launches**. Editing `~/.claude/.mcp.json` does not hot-reload.
 
-1. Exit Claude Code (Ctrl+C)
-2. Relaunch Claude Code
-3. The tradingview MCP server should connect automatically
+After adding or changing the config:
+
+1. **Fully quit** Claude Code (e.g. **Cmd+Q** on Mac, or quit from the menu — not only closing a window or using an in-app `/restart` if that does not relaunch the host app).
+2. Open Claude Code again.
+3. The `tradingview` MCP server should connect on startup; then tools like `tv_health_check` are available in chat.
+
+**Without MCP:** From a terminal, with the repo installed and TradingView running with `--remote-debugging-port=9222`, you can run `tv status` (same kind of CDP check as `tv_health_check`).
 
 ## Step 6: Verify Connection
 
@@ -101,6 +105,8 @@ node src/cli/index.js ict
 
 Or after `npm link`: `tv ict`. Artifacts: `screenshots/ict-runs/<timestamp>/` (PNGs + markdown + `synthesis.md`).
 
+**Claude Code users:** Use MCP tool **`tv_ict`** (e.g. *“Run tv_ict”*) after a full app restart so MCP loads — same result as the CLI. Or use the **terminal** command above. Plain chat text “tv ict” alone may not invoke either.
+
 ## Step 8: Install CLI (Optional)
 
 To use the `tv` CLI command globally:
@@ -118,7 +124,8 @@ Then `tv status`, `tv quote`, `tv pine compile`, `tv ict`, etc. work from anywhe
 |---------|----------|
 | `cdp_connected: false` | Launch TradingView with `--remote-debugging-port=9222` |
 | `ECONNREFUSED` | TradingView isn't running or port 9222 is blocked |
-| MCP server not showing in Claude Code | Check `~/.claude/.mcp.json` syntax, restart Claude Code |
+| MCP server not showing in Claude Code | Check `~/.claude/.mcp.json` syntax, then **fully quit** Claude Code and reopen (MCP does not load on soft `/restart` alone in many setups) |
+| `tv_health_check` not available in chat | Config is correct but session started before MCP was added — **quit Claude Code completely** and reopen; or use terminal `tv status` |
 | `tv` command not found | Run `npm link` from the project directory |
 | Tools return stale data | TradingView may still be loading — wait a few seconds |
 | Pine Editor tools fail | Open the Pine Editor panel first (`ui_open_panel pine-editor open`) |
