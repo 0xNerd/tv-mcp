@@ -293,38 +293,110 @@ export async function uiEvaluate({ expression }) {
 }
 
 /**
- * Before ICT screenshots: hide bottom Pine widget and collapse the right layout strip
- * (where the script editor often lives in split view). Returns a key for restoreChartLayoutAfterIct.
+ * Before ICT screenshots: hide bottom Pine widget (all known IDs) and collapse the
+ * layout area that actually contains the Monaco Pine editor (right dock, bottom dock, etc.).
+ * Returns a key for restoreChartLayoutAfterIct.
  */
 export async function prepareChartOnlyLayout() {
   const result = await evaluate(`
     (function() {
       var key = 'tv_mcp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-      var stash = { key: key, rightStyle: null, hadRight: false, hidBottomPine: false };
+      var stash = {
+        key: key,
+        items: [],
+        hidBottomPineAttempts: 0,
+        monaco_found: false,
+        collapsed_from_monaco: false,
+      };
+
+      function stashCollapse(el, kind) {
+        if (!el) return;
+        for (var i = 0; i < stash.items.length; i++) {
+          if (stash.items[i].el === el) return;
+        }
+        var prevStyle = el.getAttribute('style') || '';
+        stash.items.push({ el: el, prevStyle: prevStyle, kind: kind });
+        el.style.setProperty('flex', '0 0 0px', 'important');
+        el.style.setProperty('overflow', 'hidden', 'important');
+        if (kind === 'right') {
+          el.style.setProperty('width', '0px', 'important');
+          el.style.setProperty('min-width', '0px', 'important');
+          el.style.setProperty('max-width', '0px', 'important');
+        } else if (kind === 'bottom') {
+          el.style.setProperty('height', '0px', 'important');
+          el.style.setProperty('min-height', '0px', 'important');
+          el.style.setProperty('max-height', '0px', 'important');
+        }
+      }
+
       var bwb = window.TradingView && window.TradingView.bottomWidgetBar;
       if (bwb && typeof bwb.hideWidget === 'function') {
-        try {
-          bwb.hideWidget('pine-editor');
-          stash.hidBottomPine = true;
-        } catch (e) {}
+        var widgetIds = ['pine-editor', 'pineEditor', 'script-editor', 'scriptEditor', 'editor'];
+        for (var wi = 0; wi < widgetIds.length; wi++) {
+          try {
+            bwb.hideWidget(widgetIds[wi]);
+            stash.hidBottomPineAttempts++;
+          } catch (e) {}
+        }
       }
-      var right = document.querySelector('[class*="layout__area--right"]');
-      if (right && right.offsetWidth > 8) {
-        stash.rightStyle = right.getAttribute('style') || '';
-        stash.hadRight = true;
-        right.style.setProperty('flex', '0 0 0px', 'important');
-        right.style.setProperty('width', '0px', 'important');
-        right.style.setProperty('min-width', '0px', 'important');
-        right.style.setProperty('max-width', '0px', 'important');
-        right.style.setProperty('overflow', 'hidden', 'important');
+
+      var monaco = document.querySelector('.monaco-editor.pine-editor-monaco');
+      stash.monaco_found = !!monaco;
+      if (monaco) {
+        var node = monaco;
+        while (node && node !== document.documentElement) {
+          var cls = (node.className && node.className.toString) ? node.className.toString() : '';
+          if (cls.indexOf('layout__area--right') !== -1) {
+            stashCollapse(node, 'right');
+            stash.collapsed_from_monaco = true;
+            break;
+          }
+          if (cls.indexOf('layout__area--bottom') !== -1) {
+            stashCollapse(node, 'bottom');
+            stash.collapsed_from_monaco = true;
+            break;
+          }
+          node = node.parentElement;
+        }
+        if (!stash.collapsed_from_monaco) {
+          var rAreas = document.querySelectorAll('[class*="layout__area--right"]');
+          for (var ra = 0; ra < rAreas.length; ra++) {
+            if (rAreas[ra].contains && rAreas[ra].contains(monaco)) {
+              stashCollapse(rAreas[ra], 'right');
+              stash.collapsed_from_monaco = true;
+              break;
+            }
+          }
+        }
+        if (!stash.collapsed_from_monaco) {
+          var bAreas = document.querySelectorAll('[class*="layout__area--bottom"]');
+          for (var ba = 0; ba < bAreas.length; ba++) {
+            if (bAreas[ba].contains && bAreas[ba].contains(monaco)) {
+              stashCollapse(bAreas[ba], 'bottom');
+              stash.collapsed_from_monaco = true;
+              break;
+            }
+          }
+        }
       }
+
+      if (!stash.collapsed_from_monaco) {
+        var right = document.querySelector('[class*="layout__area--right"]');
+        if (right && right.offsetWidth > 8) stashCollapse(right, 'right');
+        var bottom = document.querySelector('[class*="layout__area--bottom"]');
+        var bottomHasPine = !!(bottom && bottom.querySelector && bottom.querySelector('.monaco-editor.pine-editor-monaco, .pine-editor-container, [class*="pine-editor"]'));
+        if (bottom && bottom.offsetHeight > 50 && bottomHasPine) stashCollapse(bottom, 'bottom');
+      }
+
       window.__tvMcpIctLayoutStash = window.__tvMcpIctLayoutStash || {};
       window.__tvMcpIctLayoutStash[key] = stash;
       return {
         key: key,
         ok: true,
-        collapsed_right_panel: stash.hadRight,
-        hid_bottom_pine_widget: stash.hidBottomPine,
+        collapsed_panel_count: stash.items.length,
+        hid_bottom_pine_widget_attempts: stash.hidBottomPineAttempts,
+        monaco_found: stash.monaco_found,
+        collapsed_layout_from_editor: stash.collapsed_from_monaco,
       };
     })()
   `);
@@ -340,13 +412,24 @@ export async function restoreChartLayoutAfterIct({ key }) {
       var bucket = window.__tvMcpIctLayoutStash;
       var stash = bucket && bucket[k];
       if (!stash) return { restored: false, reason: 'no_stash' };
-      var right = document.querySelector('[class*="layout__area--right"]');
-      if (stash.hadRight && right) {
-        if (stash.rightStyle) right.setAttribute('style', stash.rightStyle);
-        else right.removeAttribute('style');
+      var items = stash.items;
+      if (items && items.length) {
+        for (var i = 0; i < items.length; i++) {
+          var el = items[i].el;
+          if (!el || !el.parentNode) continue;
+          var prev = items[i].prevStyle;
+          if (prev) el.setAttribute('style', prev);
+          else el.removeAttribute('style');
+        }
+      } else if (stash.hadRight) {
+        var right = document.querySelector('[class*="layout__area--right"]');
+        if (right) {
+          if (stash.rightStyle) right.setAttribute('style', stash.rightStyle);
+          else right.removeAttribute('style');
+        }
       }
       delete bucket[k];
-      return { restored: true };
+      return { restored: true, restored_panels: items ? items.length : 0 };
     })()
   `);
 }

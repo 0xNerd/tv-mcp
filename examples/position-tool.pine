@@ -2,56 +2,82 @@
 indicator("Position Tool", overlay=true, max_boxes_count=5, max_lines_count=10, max_labels_count=10)
 
 // ── Inputs ────────────────────────────────────────────────────────────────────
-dir        = input.string("Long", "Direction", options=["Long", "Short"])
-entryPrice = input.float(74627,   "Entry",     minval=0, step=1)
-slPrice    = input.float(73762,   "Stop Loss", minval=0, step=1)
-tpPrice    = input.float(82412,   "Target",    minval=0, step=1)
+dirMode    = input.string("Auto", "Direction", options=["Auto", "Long", "Short"], tooltip="Auto: Long if SL < Entry < Target; Short if Target < Entry < SL. Use Long/Short to force.")
+entryPrice = input.float(74627, "Entry",     minval=0, step=1)
+slPrice    = input.float(73762, "Stop Loss", minval=0, step=1)
+tpPrice    = input.float(82412, "Target",    minval=0, step=1)
+qty        = input.float(0.1,  "Qty",       minval=0, step=0.001)
+
+// ── Direction: manual or from classic risk/reward placement ───────────────────
+priceLongOk  = slPrice < entryPrice and tpPrice > entryPrice
+priceShortOk = slPrice > entryPrice and tpPrice < entryPrice
+
+isLong =
+     dirMode == "Long"  ? true
+  :  dirMode == "Short" ? false
+  :  priceLongOk        ? true
+  :  priceShortOk       ? false
+  :  true
+
+setupAmbiguous = dirMode == "Auto" and not priceLongOk and not priceShortOk
+manualMismatch = (dirMode == "Long" and not priceLongOk) or (dirMode == "Short" and not priceShortOk)
 
 // ── Derived ───────────────────────────────────────────────────────────────────
-isLong   = dir == "Long"
-risk     = math.abs(entryPrice - slPrice)
-rwd      = math.abs(tpPrice - entryPrice)
-rr       = rwd / risk
-openPct  = (close - entryPrice) / entryPrice * 100 * (isLong ? 1 : -1)
-pnlPos   = openPct >= 0
+risk    = math.abs(entryPrice - slPrice)
+rwd     = math.abs(tpPrice - entryPrice)
+rr      = risk > 0 ? rwd / risk : na
+slPct   = entryPrice > 0 ? risk / entryPrice * 100 : na
+tpPct   = entryPrice > 0 ? rwd / entryPrice * 100 : na
+slAmt   = qty * risk
+tpAmt   = qty * rwd
+openPct = entryPrice > 0 ? (close - entryPrice) / entryPrice * 100 * (isLong ? 1 : -1) : na
 
-// ── Geometry ──────────────────────────────────────────────────────────────────
+// ── Geometry (min/max so profit = entry↔TP and risk = entry↔SL for long or short) ─
+riskTop = math.max(entryPrice, slPrice)
+riskBot = math.min(entryPrice, slPrice)
+profTop = math.max(entryPrice, tpPrice)
+profBot = math.min(entryPrice, tpPrice)
+midRisk = math.avg(entryPrice, slPrice)
+midProf = math.avg(entryPrice, tpPrice)
+
 lft  = bar_index - 30
 rgt  = bar_index
-midX = bar_index - 15  // center of the shaded box
-
-// ── Colors ────────────────────────────────────────────────────────────────────
-cLossBg = color.new(color.red,  80)
-cProfBg = color.new(color.lime, 80)
-cEntry  = color.new(color.blue, 0)
-cSL     = color.new(color.red,  0)
-cTP     = color.new(color.lime, 0)
+midX = bar_index - 15
 
 if barstate.islast
     // ── Zones ──────────────────────────────────────────────────────────────
-    box.new(lft, entryPrice, rgt, slPrice,    bgcolor=cLossBg, border_color=color.new(color.red,  50))
-    box.new(lft, tpPrice,    rgt, entryPrice, bgcolor=cProfBg, border_color=color.new(color.lime, 50))
+    box.new(lft, profTop, rgt, profBot, bgcolor=color.new(color.teal, 75), border_color=color.new(color.teal, 40))
+    box.new(lft, riskTop, rgt, riskBot, bgcolor=color.new(color.red,  82), border_color=color.new(color.red,  50))
 
     // ── Lines ──────────────────────────────────────────────────────────────
-    line.new(lft, entryPrice, rgt, entryPrice, color=cEntry, width=2)
-    line.new(lft, slPrice,    rgt, slPrice,    color=cSL,    width=1, style=line.style_dashed)
-    line.new(lft, tpPrice,    rgt, tpPrice,    color=cTP,    width=1, style=line.style_dashed)
+    line.new(lft, entryPrice, rgt, entryPrice, color=color.new(color.teal, 0), width=2)
+    line.new(lft, slPrice,    rgt, slPrice,    color=color.new(color.red,  0), width=1, style=line.style_dashed)
+    line.new(lft, tpPrice,    rgt, tpPrice,    color=color.new(color.teal, 0), width=1, style=line.style_dashed)
 
-    // ── Entry / Open P&L — centered on entry line inside the box ──────────
-    label.new(midX, entryPrice,
-              (isLong ? "LONG" : "SHORT") + "  " + str.tostring(entryPrice, "#.00") + "\n" +
-              "Open P&L: " + (pnlPos ? "+" : "") + str.tostring(math.round(openPct, 2)) + "%",
-              color=color.new(color.green, 20), textcolor=color.white,
+    warnTxt = (setupAmbiguous ? " (Auto: check Entry/SL/TP)" : "") + (manualMismatch ? " (Prices vs Direction)" : "")
+
+    // ── Target label — anchored at TP (style flips for short vs long readability)
+    label.new(lft, tpPrice,
+              "Target: " + str.tostring(tpPrice, "#.##") +
+              "  (" + str.tostring(math.round(tpPct, 2)) + "%)  " +
+              str.tostring(math.round(rwd, 0)) +
+              ",  Amount: " + str.tostring(math.round(tpAmt, 2)),
+              color=color.new(color.teal, 10), textcolor=color.white,
+              style=isLong ? label.style_label_lower_right : label.style_label_upper_right, size=size.small)
+
+    // ── Center — bias, Open P&L, R:R ─────────────────────────────────────
+    label.new(midX, midProf,
+              (isLong ? "LONG" : "SHORT") + warnTxt + "\n" +
+              "Open P&L: " + (openPct >= 0 ? "+" : "") + str.tostring(math.round(openPct, 2)) + "%  Qty: " + str.tostring(qty, "#.###") + "\n" +
+              "Risk/Reward: 1:" + str.tostring(math.round(rr, 1)),
+              color=color.new(color.red, 10), textcolor=color.white,
               style=label.style_label_center, size=size.small)
 
-    // ── Stop Loss — centered inside red zone ──────────────────────────────
-    label.new(midX, math.avg(entryPrice, slPrice),
-              "Stop Loss  " + str.tostring(slPrice, "#.00"),
-              color=color.new(color.red, 20), textcolor=color.white,
-              style=label.style_label_center, size=size.small)
-
-    // ── Target — centered inside green zone ───────────────────────────────
-    label.new(midX, math.avg(entryPrice, tpPrice),
-              "Target  " + str.tostring(tpPrice, "#.00") + "     R:R  1:" + str.tostring(math.round(rr, 1)),
-              color=color.new(color.green, 20), textcolor=color.white,
-              style=label.style_label_center, size=size.small)
+    // ── Stop — anchored at SL (style flips for short vs long)
+    label.new(lft, slPrice,
+              "Stop: " + str.tostring(slPrice, "#.##") +
+              "  (" + str.tostring(math.round(slPct, 2)) + "%)  " +
+              str.tostring(math.round(risk, 0)) +
+              ",  Amount: " + str.tostring(math.round(slAmt, 2)),
+              color=color.new(color.red, 10), textcolor=color.white,
+              style=isLong ? label.style_label_upper_right : label.style_label_lower_right, size=size.small)

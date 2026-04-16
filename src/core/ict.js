@@ -356,7 +356,7 @@ export function dryRunPlan({ rulesPath, config }) {
       ...config.timeframes.flatMap((tf) => {
         const slug = tfToSlug(tf);
         return [
-          `Timeframe ${tf}: clear drawings → set resolution`,
+          `Timeframe ${tf}: clear → set resolution → clear after load → (OHLCV) → clear → draw → screenshot`,
           `Draw: ${config.heuristics.enabled ? 'chart_drawings (zones + drawings) + OHLCV heuristics' : 'chart_drawings (zones + drawings) only'}`,
           `Screenshot → ${prefix}_${tf}.png`,
           `Write ${slug}.md`,
@@ -391,6 +391,9 @@ export async function runIctReport({ rulesPath, dryRun } = {}) {
     await drawing.clearAll();
     await chart.setTimeframe({ timeframe: tf });
     await sleep(1200);
+    // Clear again after the chart has switched — TV can restore or duplicate shapes on resolution change.
+    await drawing.clearAll();
+    await sleep(250);
 
     const ohlcvSummary = await data.getOhlcv({
       count: cfg.heuristics.ohlcv_bars,
@@ -409,6 +412,9 @@ export async function runIctReport({ rulesPath, dryRun } = {}) {
       ? heuristicZoneOps(ohlcvSummary)
       : [];
     const drawOps = mergeDrawOps(configOps, heuristicOps);
+
+    await drawing.clearAll();
+    await sleep(200);
 
     for (const op of drawOps) {
       await drawing.drawShape({

@@ -98,6 +98,37 @@ export async function removeOne({ entity_id }) {
 
 export async function clearAll() {
   const apiPath = await getChartApi();
-  await evaluate(`${apiPath}.removeAllShapes()`);
-  return { success: true, action: 'all_shapes_removed' };
+  const removed = await evaluate(`
+    (function() {
+      var api = ${apiPath};
+      var total = 0;
+      function collectIds() {
+        var ids = [];
+        try {
+          var all = typeof api.getAllShapes === 'function' ? api.getAllShapes() : null;
+          if (all && all.length) {
+            for (var i = 0; i < all.length; i++) {
+              if (all[i] && all[i].id) ids.push(all[i].id);
+            }
+          }
+        } catch (e) {}
+        return ids;
+      }
+      try {
+        if (typeof api.removeAllShapes === 'function') api.removeAllShapes();
+      } catch (e) {}
+      for (var pass = 0; pass < 4; pass++) {
+        var ids = collectIds();
+        if (!ids.length) break;
+        for (var j = 0; j < ids.length; j++) {
+          try {
+            if (typeof api.removeEntity === 'function') api.removeEntity(ids[j]);
+            total++;
+          } catch (e2) {}
+        }
+      }
+      return { removed_attempts: total, remaining: collectIds().length };
+    })()
+  `);
+  return { success: true, action: 'all_shapes_removed', ...removed };
 }
